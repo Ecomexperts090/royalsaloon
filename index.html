@@ -13,6 +13,10 @@
         .bg-royal-gradient { background: linear-gradient(to bottom, transparent, rgba(10, 10, 10, 0.5), #0a0a0a); }
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
         .hide-scroll::-webkit-scrollbar { display: none; }
+        
+        /* Custom Loader for Chat */
+        .dot-pulse { position: relative; left: -9999px; width: 6px; height: 6px; border-radius: 5px; background-color: #f59e0b; color: #f59e0b; box-shadow: 9999px 0 0 0 #f59e0b; animation: dot-pulse 1.5s infinite linear; }
+        @keyframes dot-pulse { 0% { box-shadow: 9999px 0 0 -5px #f59e0b; } 30% { box-shadow: 9999px 0 0 2px #f59e0b; } 60%, 100% { box-shadow: 9999px 0 0 -5px #f59e0b; } }
     </style>
 </head>
 <body class="selection:bg-amber-500/30">
@@ -165,9 +169,12 @@
                     <div class="max-w-[80%] p-3 rounded-2xl text-sm bg-neutral-800 text-white rounded-tl-none">Hello! I am Raja, Royal Saloon's AI assistant. How can I help you today?</div>
                 </div>
             </div>
+            <div id="chat-loader" class="hidden px-4 py-2">
+                <div class="dot-pulse ml-4"></div>
+            </div>
             <div class="p-4 bg-neutral-900 border-t border-white/5 flex gap-2">
-                <input type="text" id="chat-input" placeholder="Ask Raja..." class="flex-1 bg-neutral-800 border-none outline-none p-3 rounded-xl text-sm">
-                <button onclick="handleChat()" class="bg-amber-500 p-3 rounded-xl text-black hover:bg-amber-600">Send</button>
+                <input type="text" id="chat-input" onkeypress="if(event.key==='Enter') handleChat()" placeholder="Ask Raja..." class="flex-1 bg-neutral-800 border-none outline-none p-3 rounded-xl text-sm">
+                <button onclick="handleChat()" id="chat-send-btn" class="bg-amber-500 p-3 rounded-xl text-black hover:bg-amber-600 transition-all">Send</button>
             </div>
         </div>
     </div>
@@ -179,7 +186,7 @@
     </footer>
 
     <script>
-        const apiKey = ""; // Canvas handles this automatically
+        const apiKey = ""; // Managed by environment
         let selectedSlot = "";
 
         // --- Navigation ---
@@ -216,9 +223,11 @@
             goToStep(3);
         }
 
-        // --- AI Features ---
+        // --- Improved AI Fetch with Exponential Backoff ---
         async function fetchGemini(url, body) {
             let retries = 0;
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            
             while (retries < 5) {
                 try {
                     const res = await fetch(`${url}?key=${apiKey}`, {
@@ -226,11 +235,17 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(body)
                     });
-                    if (!res.ok) throw new Error();
-                    return await res.json();
-                } catch {
+                    
+                    if (res.ok) {
+                        return await res.json();
+                    }
+                    
+                    // If rate limited or server error, wait and retry
+                    throw new Error(`Status: ${res.status}`);
+                } catch (err) {
+                    console.log(`Retry ${retries + 1} for ${url}...`);
+                    await new Promise(r => setTimeout(r, delays[retries]));
                     retries++;
-                    await new Promise(r => setTimeout(r, Math.pow(2, retries) * 1000));
                 }
             }
             return null;
@@ -250,47 +265,63 @@
             tipBox.classList.add('hidden');
             loader.classList.remove('hidden');
 
-            // Get Text Tip
-            const textRes = await fetchGemini('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent', {
-                contents: [{ parts: [{ text: `User wants: ${prompt}. Professional maintenance tip (max 15 words) in English.` }] }]
+            // Parallel calls for faster response
+            const textPromise = fetchGemini('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent', {
+                contents: [{ parts: [{ text: `User wants a hairstyle described as: ${prompt}. Give one professional maintenance tip (max 12 words) in English.` }] }]
             });
-            const tip = textRes?.candidates?.[0]?.content?.parts?.[0]?.text;
 
-            // Get Image
-            const imgRes = await fetchGemini('https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict', {
-                instances: { prompt: `Cinematic portrait of a man with ${prompt}, luxury salon background, detailed lighting` },
+            const imgPromise = fetchGemini('https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict', {
+                instances: { prompt: `High resolution professional studio photography of a male model with ${prompt}, clean barber shop background, cinematic lighting, 8k` },
                 parameters: { sampleCount: 1 }
             });
 
+            const [textRes, imgRes] = await Promise.all([textPromise, imgPromise]);
+
             loader.classList.add('hidden');
-            if (imgRes?.predictions?.[0]?.bytesBase64Encoded) {
+            
+            if (imgRes && imgRes.predictions && imgRes.predictions[0]) {
                 imgEl.src = `data:image/png;base64,${imgRes.predictions[0].bytesBase64Encoded}`;
                 imgEl.classList.remove('hidden');
+                
+                const tip = textRes?.candidates?.[0]?.content?.parts?.[0]?.text || "Keep it clean and style daily!";
                 document.getElementById('ai-tip-text').innerText = tip;
                 tipBox.classList.remove('hidden');
+            } else {
+                placeholder.classList.remove('hidden');
+                alert("Raja is styling too many people! Please try in a moment.");
             }
         }
 
-        // --- Chatbot ---
+        // --- Chatbot with Typing State ---
         function toggleChat() {
             document.getElementById('chat-window').classList.toggle('hidden');
         }
 
         async function handleChat() {
             const input = document.getElementById('chat-input');
+            const btn = document.getElementById('chat-send-btn');
             const text = input.value.trim();
             if(!text) return;
 
             const msgContainer = document.getElementById('chat-messages');
+            const loader = document.getElementById('chat-loader');
+            
+            // Add user message
             msgContainer.innerHTML += `<div class="flex justify-end"><div class="max-w-[80%] p-3 rounded-2xl text-sm bg-amber-500 text-black rounded-tr-none font-medium">${text}</div></div>`;
             input.value = "";
+            btn.disabled = true;
+            loader.classList.remove('hidden');
             msgContainer.scrollTop = msgContainer.scrollHeight;
 
             const res = await fetchGemini('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent', {
-                contents: [{ parts: [{ text: `You are Raja, a professional barber. Answer: ${text}` }] }]
+                contents: [{ parts: [{ text: `You are Raja, the world-class owner of Royal Saloon. You are helpful, professional, and cool. Respond to: ${text}` }] }]
             });
 
-            const reply = res?.candidates?.[0]?.content?.parts?.[0]?.text || "I am busy with a client, please try again!";
+            loader.classList.add('hidden');
+            btn.disabled = false;
+            
+            const reply = res?.candidates?.[0]?.content?.parts?.[0]?.text || "I'm currently attending to a royal client. Let me get back to you in a minute!";
+            
             msgContainer.innerHTML += `<div class="flex justify-start"><div class="max-w-[80%] p-3 rounded-2xl text-sm bg-neutral-800 text-white rounded-tl-none">${reply}</div></div>`;
             msgContainer.scrollTop = msgContainer.scrollHeight;
         }
