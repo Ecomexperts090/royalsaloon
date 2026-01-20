@@ -26,6 +26,11 @@ import {
   UserCircle
 } from 'lucide-react';
 
+// --- Global Config ---
+// Note: Deployment ke waqt hamesha check karein ki 'apiKey' empty na ho agar aap kisi external 
+// site par deploy kar rahe hain. Canvas mein ye environment handle kar leta hai.
+const apiKey = ""; 
+
 // Common Data
 const services = [
   { name: 'Hair Cut', price: '₹499', icon: <Scissors className="w-6 h-6" /> },
@@ -36,41 +41,6 @@ const services = [
 
 const timeSlots = ["10:00 AM", "11:00 AM", "12:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM", "06:00 PM"];
 
-// --- Helper function for Audio ---
-const pcmToWav = (base64Data, sampleRate = 24000) => {
-  const binaryString = window.atob(base64Data);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  const buffer = bytes.buffer;
-  const wavHeader = new ArrayBuffer(44);
-  const view = new DataView(wavHeader);
-  const writeString = (offset, string) => {
-    for (let i = 0; i < string.length; i++) {
-      view.setUint8(offset + i, string.charCodeAt(i));
-    }
-  };
-  writeString(0, 'RIFF');
-  view.setUint32(4, 32 + buffer.byteLength, true);
-  writeString(8, 'WAVE');
-  writeString(12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  writeString(36, 'data');
-  view.setUint32(40, buffer.byteLength, true);
-  const combined = new Uint8Array(wavHeader.byteLength + buffer.byteLength);
-  combined.set(new Uint8Array(wavHeader), 0);
-  combined.set(new Uint8Array(buffer), wavHeader.byteLength);
-  return new Blob([combined], { type: 'audio/wav' });
-};
-
 // --- Components ---
 
 const Navbar = ({ setCurrentPage, currentPage }) => (
@@ -79,18 +49,17 @@ const Navbar = ({ setCurrentPage, currentPage }) => (
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       onClick={() => setCurrentPage('home')}
-      className="text-2xl font-bold tracking-tighter text-amber-500 cursor-pointer"
+      className="text-2xl font-bold tracking-tighter text-amber-500 cursor-pointer uppercase"
     >
       ROYAL SALOON
     </motion.div>
-    <div className="hidden md:flex space-x-8 text-sm font-medium">
+    <div className="hidden md:flex space-x-8 text-sm font-medium uppercase tracking-widest">
       <button onClick={() => setCurrentPage('home')} className={`transition-colors ${currentPage === 'home' ? 'text-amber-500' : 'hover:text-amber-500'}`}>Home</button>
-      <a href="#services" className="hover:text-amber-500 transition-colors">Services</a>
       <button onClick={() => setCurrentPage('about')} className={`transition-colors ${currentPage === 'about' ? 'text-amber-500' : 'hover:text-amber-500'}`}>About</button>
     </div>
     <button 
       onClick={() => {setCurrentPage('home'); setTimeout(() => document.getElementById('booking')?.scrollIntoView(), 100)}}
-      className="bg-amber-600 hover:bg-amber-700 px-5 py-2 rounded-full text-sm font-bold transition-all transform hover:scale-105"
+      className="bg-amber-600 hover:bg-amber-700 px-6 py-2 rounded-full text-sm font-bold transition-all shadow-lg shadow-amber-600/20"
     >
       Book Now
     </button>
@@ -98,23 +67,18 @@ const Navbar = ({ setCurrentPage, currentPage }) => (
 );
 
 const Footer = () => (
-  <footer className="bg-black py-16 border-t border-neutral-800">
-    <div className="container mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12">
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-amber-500">ROYAL SALOON</h2>
-        <p className="text-neutral-400 leading-relaxed">Serving premium grooming experiences since 2015.</p>
+  <footer className="bg-black py-20 border-t border-white/5">
+    <div className="container mx-auto px-6 text-center">
+      <div className="text-3xl font-black text-amber-500 mb-6 tracking-tighter uppercase">Royal Saloon</div>
+      <div className="flex justify-center gap-8 mb-12">
+        <Instagram className="text-neutral-500 hover:text-amber-500 cursor-pointer transition-all" />
+        <Facebook className="text-neutral-500 hover:text-amber-500 cursor-pointer transition-all" />
+        <a href="https://maps.google.com/?q=Purwa+Raja+Bajar+209825" target="_blank" rel="noopener noreferrer">
+          <MapPin className="text-neutral-500 hover:text-amber-500 cursor-pointer transition-all" />
+        </a>
       </div>
-      <div className="space-y-6 text-neutral-400">
-          <h3 className="text-lg font-bold text-white uppercase">Contact</h3>
-          <p className="flex items-center gap-3"><Phone size={18} className="text-amber-500"/> +91 98765 43210</p>
-          <p className="flex items-center gap-3"><MapPin size={18} className="text-amber-500"/> Main Street, New Delhi</p>
-      </div>
-      <div className="space-y-6">
-        <h3 className="text-lg font-bold text-white">Hours</h3>
-        <ul className="space-y-4 text-neutral-400 text-sm">
-          <li className="flex justify-between"><span>Mon - Sat:</span> <span>10 AM - 9 PM</span></li>
-        </ul>
-      </div>
+      <p className="text-neutral-600 text-xs font-bold tracking-widest mb-4">Purwa Raja Bajar, 209825</p>
+      <div className="text-[10px] text-neutral-700 uppercase font-black tracking-[0.4em]">© 2026 Royal Saloon Luxury Grooming</div>
     </div>
   </footer>
 );
@@ -137,13 +101,11 @@ const App = () => {
   
   // Chatbot State
   const [chatMessages, setChatMessages] = useState([
-    { role: 'ai', text: 'Hello! Main Royal Saloon ka AI assistant hoon. Aap mujhse grooming tips ya hairstyles ke baare mein puch sakte hain!' }
+    { role: 'ai', text: 'Hello! I am Raja, Royal Saloon\'s AI assistant. How can I help you with your style today?' }
   ]);
   const [userInput, setUserInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const scrollRef = useRef(null);
-
-  const apiKey = ""; 
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -153,17 +115,9 @@ const App = () => {
 
   useEffect(() => {
     if (currentPage === 'home') {
-      let start = 0;
-      const end = 1250;
       const timer = setInterval(() => {
-        start += 15;
-        if (start >= end) {
-          setCounter(end);
-          clearInterval(timer);
-        } else {
-          setCounter(start);
-        }
-      }, 16);
+        setCounter(prev => (prev < 1250 ? prev + 25 : 1250));
+      }, 30);
       return () => clearInterval(timer);
     }
   }, [currentPage]);
@@ -193,17 +147,15 @@ const App = () => {
     setIsAiLoading(true);
     setIsLoadingImg(true);
 
-    // Get Text Suggestion
     const textRes = await fetchGemini('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent', {
-      contents: [{ parts: [{ text: `User wants advice for: ${aiPrompt}. Provide a specific hairstyle recommendation for an Indian male profile in 30 words.` }] }]
+      contents: [{ parts: [{ text: `User wants advice for: ${aiPrompt}. Provide a short professional maintenance tip in English (max 20 words).` }] }]
     });
     const suggestion = textRes?.candidates?.[0]?.content?.parts?.[0]?.text;
     setAiResponse(suggestion);
     setIsAiLoading(false);
 
-    // Generate Image
     const imgRes = await fetchGemini('https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict', {
-      instances: { prompt: `Cinematic high quality portrait of an Indian man with ${suggestion || aiPrompt}, professional salon photography, clean background` },
+      instances: { prompt: `Cinematic high quality portrait of a man with ${aiPrompt}, professional salon photography, clean background, sharp details` },
       parameters: { sampleCount: 1 }
     });
     if (imgRes?.predictions?.[0]?.bytesBase64Encoded) {
@@ -220,10 +172,10 @@ const App = () => {
     setIsChatLoading(true);
 
     const res = await fetchGemini('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent', {
-      contents: [{ parts: [{ text: `You are a friendly Indian barber assistant named 'Raja'. Talk in Hinglish. Answer this: ${userInput}` }] }]
+      contents: [{ parts: [{ text: `You are a professional barber named 'Raja'. Answer this query in English: ${userInput}` }] }]
     });
     
-    const reply = res?.candidates?.[0]?.content?.parts?.[0]?.text || "Maaf kijiyega, kuch network issue lag raha hai.";
+    const reply = res?.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I'm having trouble connecting right now.";
     setChatMessages([...newMsgs, { role: 'ai', text: reply }]);
     setIsChatLoading(false);
   };
@@ -242,170 +194,150 @@ const App = () => {
         {currentPage === 'home' ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             {/* Hero */}
-            <section className="h-[80vh] flex items-center justify-center relative overflow-hidden">
-               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-neutral-950 z-10" />
-               <img src="https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&q=80&w=1600" className="absolute inset-0 w-full h-full object-cover opacity-40" />
-               <div className="relative z-20 text-center px-4">
-                 <h1 className="text-6xl md:text-8xl font-black mb-4 tracking-tighter uppercase">Royal <span className="text-amber-500">Grooming</span></h1>
-                 <p className="text-lg text-neutral-400 max-w-xl mx-auto mb-8">Premium services for the modern gentleman. Experience luxury like never before.</p>
-                 <button onClick={() => document.getElementById('booking').scrollIntoView()} className="bg-amber-500 text-black px-10 py-4 rounded-full font-bold text-lg hover:scale-105 transition-all shadow-xl shadow-amber-500/20">Book Appointment</button>
-               </div>
-            </section>
+            <header className="relative h-[85vh] flex items-center justify-center overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&q=80&w=1600" className="absolute inset-0 w-full h-full object-cover opacity-40 scale-105" alt="Salon" />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-neutral-950/50 to-neutral-950"></div>
+              <div className="relative z-10 text-center px-4">
+                <motion.h1 initial={{ y: 20 }} animate={{ y: 0 }} className="text-7xl md:text-9xl font-black mb-6 uppercase leading-none tracking-tighter">Royal <br /><span className="text-amber-500">Identity</span></motion.h1>
+                <p className="text-neutral-400 max-w-xl mx-auto mb-8 text-lg font-medium">Premium grooming reinvented with AI. Experience the future of style.</p>
+                <div className="flex flex-wrap gap-4 justify-center">
+                  <button onClick={() => document.getElementById('ai-lab').scrollIntoView()} className="bg-white text-black px-8 py-4 rounded-full font-bold flex items-center gap-2 hover:bg-amber-500 hover:text-white transition-all transform hover:scale-105">
+                    <Sparkles size={20} /> AI Style Lab
+                  </button>
+                  <button onClick={() => document.getElementById('booking').scrollIntoView()} className="border border-white/20 backdrop-blur-md px-8 py-4 rounded-full font-bold hover:bg-white/10 transition-all uppercase text-sm tracking-widest">Book Appointment</button>
+                </div>
+              </div>
+            </header>
 
-            {/* AI Visualizer */}
-            <section className="py-24 bg-neutral-900/50">
-              <div className="container mx-auto px-6 max-w-5xl">
-                <div className="flex flex-col md:flex-row gap-12 items-center">
-                  <div className="flex-1 space-y-6">
-                    <div className="inline-flex items-center gap-2 bg-amber-500/10 text-amber-500 px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest">
-                      <Sparkles size={14} /> AI Style Visualizer
+            {/* AI Lab */}
+            <section id="ai-lab" className="py-24 bg-neutral-900/30">
+              <div className="container mx-auto px-6 max-w-6xl">
+                <div className="flex flex-col lg:flex-row gap-16 items-center">
+                  <div className="w-full lg:w-1/2 space-y-8">
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 text-amber-500 text-xs font-black uppercase tracking-widest border border-amber-500/20">
+                      <BrainCircuit size={16} /> AI Style Visualization
                     </div>
-                    <h2 className="text-4xl font-black uppercase">Dekhiye apna <span className="text-amber-500">Naya Look</span> ✨</h2>
-                    <p className="text-neutral-400">Bas bataiye aapko kaisa hairstyle chahiye, hamara AI aapke liye image generate kar dega!</p>
+                    <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">Design Your <span className="text-amber-500">New Look</span></h2>
+                    <p className="text-neutral-400 text-lg">Describe your dream hairstyle and let our AI generate a professional preview for you.</p>
                     <div className="space-y-4">
                       <textarea 
                         value={aiPrompt}
                         onChange={(e) => setAiPrompt(e.target.value)}
-                        placeholder="E.g. I want a textured quiff with a fade..."
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl p-4 focus:border-amber-500 outline-none h-24 resize-none transition-all"
+                        placeholder="E.g. Mid fade with textured fringe and clean beard line..."
+                        className="w-full bg-black/60 border border-white/10 rounded-3xl p-6 h-40 outline-none focus:border-amber-500 transition-all resize-none shadow-inner text-lg"
                       />
                       <button 
                         onClick={handleStyleViz}
                         disabled={isLoadingImg || !aiPrompt}
-                        className="w-full bg-white text-black py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-amber-500 transition-all disabled:opacity-50"
+                        className="w-full bg-amber-500 text-black py-5 rounded-2xl font-black uppercase flex items-center justify-center gap-2 hover:bg-amber-600 transition-all disabled:opacity-50"
                       >
-                        {isLoadingImg ? <Loader2 className="animate-spin" /> : <><ImageIcon size={18} /> Visualize Style ✨</>}
+                        {isLoadingImg ? <Loader2 className="animate-spin" /> : <><Sparkles size={18} /> Visualize Style ✨</>}
                       </button>
                     </div>
                   </div>
-                  <div className="flex-1 w-full aspect-square bg-neutral-800 rounded-3xl border border-white/5 overflow-hidden relative flex items-center justify-center">
-                    {isLoadingImg ? (
-                      <div className="text-center space-y-4">
-                        <Loader2 className="w-12 h-12 text-amber-500 animate-spin mx-auto" />
-                        <p className="text-amber-500 font-bold animate-pulse uppercase text-xs">AI is painting your style...</p>
-                      </div>
-                    ) : generatedImg ? (
-                      <motion.img initial={{ opacity: 0 }} animate={{ opacity: 1 }} src={generatedImg} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="text-center p-8 opacity-20">
-                        <ImageIcon size={64} className="mx-auto mb-4" />
-                        <p className="uppercase font-bold tracking-widest text-sm">Your Visualized Style Appears Here</p>
-                      </div>
-                    )}
-                    {aiResponse && !isLoadingImg && (
-                      <div className="absolute bottom-4 left-4 right-4 bg-black/60 backdrop-blur-md p-4 rounded-2xl border border-white/10">
-                        <p className="text-xs text-amber-500 font-bold mb-1 uppercase tracking-widest">AI Suggestion:</p>
-                        <p className="text-sm italic">"{aiResponse}"</p>
-                      </div>
-                    )}
+                  <div className="w-full lg:w-1/2">
+                    <div className="aspect-[4/5] rounded-[3rem] overflow-hidden border border-white/10 bg-neutral-900 shadow-2xl flex items-center justify-center relative group">
+                      {isLoadingImg ? (
+                        <div className="text-center space-y-4">
+                          <Loader2 className="w-12 h-12 text-amber-500 animate-spin mx-auto" />
+                          <p className="text-amber-500 font-bold animate-pulse uppercase text-xs tracking-widest">Generating style...</p>
+                        </div>
+                      ) : generatedImg ? (
+                        <>
+                          <motion.img initial={{ opacity: 0 }} animate={{ opacity: 1 }} src={generatedImg} className="w-full h-full object-cover" />
+                          {aiResponse && (
+                            <div className="absolute bottom-6 left-6 right-6 bg-black/80 backdrop-blur-md p-6 rounded-3xl border border-white/10">
+                              <p className="text-amber-500 font-black text-xs uppercase mb-2 tracking-widest">Pro Tip:</p>
+                              <p className="text-sm italic">"{aiResponse}"</p>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-center p-12 opacity-30">
+                          <ImageIcon size={80} className="mx-auto mb-6" />
+                          <p className="font-black uppercase tracking-[0.2em] text-sm">Your Preview Will Appear Here</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             </section>
 
             {/* Booking */}
-            <section id="booking" className="py-24">
-              <div className="container mx-auto px-6 max-w-3xl">
-                <div className="text-center mb-12">
-                   <h2 className="text-4xl font-black uppercase">Reserve Your Spot</h2>
-                   <p className="text-neutral-500 mt-2">Apna slot book karein aur royal treatment payein.</p>
+            <section id="booking" className="py-32">
+              <div className="container mx-auto px-6 max-w-4xl">
+                <div className="text-center mb-16">
+                  <h2 className="text-5xl font-black uppercase mb-4 tracking-tighter">Reserve Your Spot</h2>
+                  <p className="text-neutral-500 font-medium text-lg italic tracking-widest uppercase">"A King deserves nothing less than perfection."</p>
                 </div>
-                <div className="bg-neutral-900 p-8 rounded-[2.5rem] border border-white/5 shadow-2xl">
-                   {bookingStep === 1 && (
-                     <div className="space-y-6">
-                        <div className="space-y-2">
-                           <label className="text-xs font-bold text-neutral-500 uppercase ml-2">Full Name</label>
-                           <input type="text" placeholder="Rahul Kumar" className="w-full bg-neutral-800 p-4 rounded-2xl outline-none focus:border-amber-500 border border-transparent" onChange={e => setCustomerName(e.target.value)} />
+                <div className="bg-neutral-900 border border-white/10 rounded-[3rem] p-10 md:p-16 shadow-3xl">
+                  {bookingStep === 1 && (
+                    <div className="space-y-8 relative z-10">
+                      <div className="space-y-3">
+                        <label className="text-xs font-black text-neutral-500 uppercase ml-2 tracking-widest">Full Name</label>
+                        <input type="text" placeholder="e.g. Rahul Sharma" className="w-full bg-black/50 border border-white/5 p-5 rounded-2xl outline-none focus:border-amber-500 transition-all text-lg font-medium" onChange={e => setCustomerName(e.target.value)} />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-3">
+                          <label className="text-xs font-black text-neutral-500 uppercase ml-2 tracking-widest">Service</label>
+                          <select className="w-full bg-black/50 border border-white/5 p-5 rounded-2xl outline-none focus:border-amber-500 transition-all cursor-pointer" onChange={e => setSelectedService(e.target.value)}>
+                            {services.map(s => <option key={s.name} value={s.name} className="bg-neutral-900">{s.name} — {s.price}</option>)}
+                          </select>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                           <div className="space-y-2">
-                              <label className="text-xs font-bold text-neutral-500 uppercase ml-2">Date</label>
-                              <input type="date" className="w-full bg-neutral-800 p-4 rounded-2xl outline-none focus:border-amber-500 border border-transparent" onChange={e => setSelectedDate(e.target.value)} />
-                           </div>
-                           <div className="space-y-2">
-                              <label className="text-xs font-bold text-neutral-500 uppercase ml-2">Service</label>
-                              <select className="w-full bg-neutral-800 p-4 rounded-2xl outline-none focus:border-amber-500 border border-transparent" onChange={e => setSelectedService(e.target.value)}>
-                                 {services.map(s => <option key={s.name}>{s.name}</option>)}
-                              </select>
-                           </div>
+                        <div className="space-y-3">
+                          <label className="text-xs font-black text-neutral-500 uppercase ml-2 tracking-widest">Date</label>
+                          <input type="date" className="w-full bg-black/50 border border-white/5 p-5 rounded-2xl outline-none focus:border-amber-500 transition-all" onChange={e => setSelectedDate(e.target.value)} />
                         </div>
-                        <button onClick={() => setBookingStep(2)} disabled={!customerName || !selectedDate} className="w-full bg-amber-500 text-black py-4 rounded-2xl font-black uppercase hover:bg-amber-600 transition-all disabled:opacity-50">Choose Slot</button>
-                     </div>
-                   )}
-                   {bookingStep === 2 && (
-                     <div className="space-y-8">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                           {timeSlots.map(t => (
-                             <button key={t} onClick={() => setSelectedSlot(t)} className={`p-3 rounded-xl border text-sm font-bold transition-all ${selectedSlot === t ? 'bg-amber-500 border-amber-500 text-black' : 'border-neutral-700 text-neutral-400'}`}>{t}</button>
-                           ))}
-                        </div>
-                        <div className="flex gap-4">
-                           <button onClick={() => setBookingStep(1)} className="flex-1 bg-neutral-800 py-4 rounded-2xl font-bold">Back</button>
-                           <button onClick={sendWhatsApp} className="flex-[2] bg-green-600 py-4 rounded-2xl font-bold flex items-center justify-center gap-2"><MessageCircle size={20}/> WhatsApp Booking</button>
-                        </div>
-                     </div>
-                   )}
-                   {bookingStep === 3 && (
-                     <div className="text-center py-12 space-y-4">
-                        <CheckCircle size={64} className="text-green-500 mx-auto" />
-                        <h3 className="text-2xl font-bold uppercase">Booking Request Sent!</h3>
-                        <p className="text-neutral-500">Aapko WhatsApp par jald hi confirmation milega.</p>
-                        <button onClick={() => setBookingStep(1)} className="bg-amber-500 text-black px-8 py-3 rounded-full font-bold">Done</button>
-                     </div>
-                   )}
+                      </div>
+                      <button onClick={() => setBookingStep(2)} disabled={!customerName || !selectedDate} className="w-full bg-amber-500 text-black py-5 rounded-2xl font-black uppercase hover:bg-amber-600 disabled:opacity-50 transition-all text-lg tracking-widest">Choose Time Slot</button>
+                    </div>
+                  )}
+                  {bookingStep === 2 && (
+                    <div className="space-y-10">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {timeSlots.map(t => (
+                          <button key={t} onClick={() => setSelectedSlot(t)} className={`p-4 rounded-2xl border-2 font-black transition-all text-sm ${selectedSlot === t ? 'bg-amber-500 border-amber-500 text-black scale-105 shadow-lg shadow-amber-500/30' : 'border-white/5 text-neutral-400'}`}>{t}</button>
+                        ))}
+                      </div>
+                      <div className="flex flex-col md:flex-row gap-4">
+                        <button onClick={() => setBookingStep(1)} className="flex-1 bg-white/5 py-5 rounded-2xl font-black uppercase text-xs tracking-widest">Back</button>
+                        <button onClick={sendWhatsApp} disabled={!selectedSlot} className="flex-[2] bg-green-600 py-5 rounded-2xl font-black uppercase flex items-center justify-center gap-2 hover:bg-green-700 transition-all shadow-xl shadow-green-600/20 disabled:opacity-50"><MessageCircle size={24} /> Confirm on WhatsApp</button>
+                      </div>
+                    </div>
+                  )}
+                  {bookingStep === 3 && (
+                    <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center py-12 space-y-8">
+                      <CheckCircle size={64} className="text-green-500 mx-auto" />
+                      <h3 className="text-3xl font-black uppercase tracking-tight">Booking Sent!</h3>
+                      <p className="text-neutral-500 text-lg">We will confirm your appointment shortly via WhatsApp.</p>
+                      <button onClick={() => setBookingStep(1)} className="bg-amber-500 text-black px-12 py-4 rounded-full font-black uppercase tracking-widest hover:scale-105 transition-all">New Booking</button>
+                    </motion.div>
+                  )}
                 </div>
               </div>
             </section>
 
-            {/* Chatbot Floating NPC */}
+            {/* AI Assistant (Raja) */}
             <div className="fixed bottom-6 right-6 z-[60]">
-               <div className="group relative">
-                  <div className="absolute -top-12 right-0 bg-amber-500 text-black px-3 py-1 rounded-lg text-xs font-black uppercase whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-                    Talk to Raja ✨
-                  </div>
-                  <button onClick={() => document.getElementById('chat-window').classList.toggle('hidden')} className="bg-amber-500 p-4 rounded-full shadow-2xl hover:scale-110 transition-transform">
-                     <BrainCircuit className="text-black" />
-                  </button>
-               </div>
-               
+               <button onClick={() => document.getElementById('chat-window').classList.toggle('hidden')} className="bg-amber-500 p-4 rounded-full shadow-2xl hover:scale-110 transition-transform group">
+                  <BrainCircuit className="text-black group-hover:rotate-12 transition-transform" />
+               </button>
                <div id="chat-window" className="hidden absolute bottom-20 right-0 w-80 md:w-96 h-[500px] bg-neutral-900 border border-white/10 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
                   <div className="p-4 bg-amber-500 text-black flex items-center justify-between">
-                     <div className="flex items-center gap-2">
-                        <UserCircle />
-                        <span className="font-black uppercase tracking-tighter">Raja the Barber</span>
-                     </div>
-                     <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-green-800 rounded-full animate-pulse" />
-                        <span className="text-[10px] font-bold">ONLINE</span>
-                     </div>
+                     <div className="flex items-center gap-2 font-black uppercase tracking-tighter"><UserCircle /> Raja the Barber</div>
+                     <div className="flex items-center gap-1 text-[10px] font-bold"><div className="w-2 h-2 bg-green-800 rounded-full animate-pulse" /> ONLINE</div>
                   </div>
                   <div ref={scrollRef} className="flex-1 p-4 space-y-4 overflow-y-auto bg-neutral-950/50">
                      {chatMessages.map((msg, i) => (
                        <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-amber-500 text-black rounded-tr-none font-medium' : 'bg-neutral-800 text-white rounded-tl-none'}`}>
-                             {msg.text}
-                          </div>
+                          <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-amber-500 text-black rounded-tr-none font-medium' : 'bg-neutral-800 text-white rounded-tl-none'}`}>{msg.text}</div>
                        </div>
                      ))}
-                     {isChatLoading && (
-                       <div className="flex justify-start">
-                          <div className="bg-neutral-800 p-3 rounded-2xl flex gap-1">
-                             <div className="w-1 h-1 bg-amber-500 rounded-full animate-bounce" />
-                             <div className="w-1 h-1 bg-amber-500 rounded-full animate-bounce [animation-delay:0.2s]" />
-                             <div className="w-1 h-1 bg-amber-500 rounded-full animate-bounce [animation-delay:0.4s]" />
-                          </div>
-                       </div>
-                     )}
+                     {isChatLoading && <div className="flex gap-1 p-3 bg-neutral-800 w-fit rounded-2xl"><div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" /><div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce [animation-delay:0.2s]" /><div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce [animation-delay:0.4s]" /></div>}
                   </div>
                   <div className="p-4 bg-neutral-900 border-t border-white/5 flex gap-2">
-                     <input 
-                        type="text" 
-                        value={userInput}
-                        onChange={e => setUserInput(e.target.value)}
-                        onKeyPress={e => e.key === 'Enter' && handleChat()}
-                        placeholder="Puchiye Raja se..."
-                        className="flex-1 bg-neutral-800 border-none outline-none p-3 rounded-xl text-sm"
-                     />
+                     <input type="text" value={userInput} onChange={e => setUserInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleChat()} placeholder="Ask Raja something..." className="flex-1 bg-neutral-800 border-none outline-none p-3 rounded-xl text-sm" />
                      <button onClick={handleChat} className="bg-amber-500 p-3 rounded-xl text-black hover:bg-amber-600"><Send size={18}/></button>
                   </div>
                </div>
@@ -415,32 +347,34 @@ const App = () => {
           <AboutPage setCurrentPage={setCurrentPage} />
         )}
       </AnimatePresence>
-
       <Footer />
     </div>
   );
 };
 
 const AboutPage = ({ setCurrentPage }) => (
-  <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="py-24 container mx-auto px-6 max-w-4xl">
-     <button onClick={() => setCurrentPage('home')} className="flex items-center gap-2 text-amber-500 mb-12 hover:gap-4 transition-all">
-        <ArrowLeft /> Back to Home
+  <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="py-24 container mx-auto px-6 max-w-5xl">
+     <button onClick={() => setCurrentPage('home')} className="flex items-center gap-3 text-amber-500 hover:text-amber-400 mb-16 transition-all font-black uppercase tracking-widest group text-sm">
+        <ArrowLeft size={20} className="group-hover:-translate-x-2 transition-transform" /> Back To Home
      </button>
-     <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-        <img src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&q=80&w=800" className="rounded-3xl border-4 border-amber-500/20 shadow-2xl" />
-        <div className="space-y-6">
-           <h2 className="text-5xl font-black uppercase">Royal <span className="text-amber-500">Heritage</span></h2>
-           <p className="text-neutral-400 leading-relaxed">Royal Saloon 2015 se grooming ka benchmark raha hai. Hum sirf haircuts nahi, balki confidence bechte hain. Hamare stylists expert hain har naye trend mein.</p>
-           <div className="flex gap-4">
-              <div className="flex-1 bg-neutral-900 p-6 rounded-2xl border border-white/5 text-center">
-                 <h4 className="text-3xl font-black text-amber-500">10k+</h4>
-                 <p className="text-[10px] uppercase font-bold text-neutral-500">Styles Created</p>
+     <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+        <div className="relative">
+          <img src="https://images.unsplash.com/photo-1599351431247-f5094021186d?auto=format&fit=crop&q=80&w=800" className="rounded-[3rem] border-4 border-amber-500/20 shadow-2xl relative z-10" alt="About" />
+        </div>
+        <div className="space-y-8">
+           <h2 className="text-6xl font-black uppercase tracking-tighter leading-none">Royal <br /><span className="text-amber-500">Heritage</span></h2>
+           <p className="text-neutral-400 leading-relaxed text-xl">Founded in 2015, Royal Saloon has redefined men's grooming in Purwa. We don't just cut hair; we build personalities using premium styles and modern tech.</p>
+           <div className="grid grid-cols-2 gap-6">
+              <div className="bg-neutral-900 p-8 rounded-[2.5rem] border border-white/5 shadow-lg text-center">
+                 <h4 className="text-amber-500 text-3xl font-black mb-1">10+</h4>
+                 <p className="text-xs uppercase font-black text-neutral-500 tracking-widest">Expert Barbers</p>
               </div>
-              <div className="flex-1 bg-neutral-900 p-6 rounded-2xl border border-white/5 text-center">
-                 <h4 className="text-3xl font-black text-amber-500">4.9</h4>
-                 <p className="text-[10px] uppercase font-bold text-neutral-500">User Rating</p>
+              <div className="bg-neutral-900 p-8 rounded-[2.5rem] border border-white/5 shadow-lg text-center">
+                 <h4 className="text-amber-500 text-3xl font-black mb-1">1250+</h4>
+                 <p className="text-xs uppercase font-black text-neutral-500 tracking-widest">Happy Clients</p>
               </div>
            </div>
+           <p className="text-neutral-500 italic font-medium">Location: Purwa Raja Bajar, 209825</p>
         </div>
      </div>
   </motion.div>
