@@ -1,0 +1,449 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Scissors, 
+  Star, 
+  Users, 
+  CheckCircle, 
+  Phone, 
+  MapPin, 
+  Instagram, 
+  Facebook, 
+  MessageCircle,
+  ArrowLeft,
+  Award,
+  Target,
+  Coffee,
+  Sparkles,
+  Send,
+  Loader2,
+  Volume2,
+  CalendarDays,
+  Shirt,
+  BrainCircuit,
+  Zap,
+  Image as ImageIcon,
+  UserCircle
+} from 'lucide-react';
+
+// Common Data
+const services = [
+  { name: 'Hair Cut', price: '₹499', icon: <Scissors className="w-6 h-6" /> },
+  { name: 'Beard Trim', price: '₹299', icon: <Star className="w-6 h-6" /> },
+  { name: 'Facial', price: '₹799', icon: <Star className="w-6 h-6" /> },
+  { name: 'Hair Spa', price: '₹1200', icon: <Scissors className="w-6 h-6" /> }
+];
+
+const timeSlots = ["10:00 AM", "11:00 AM", "12:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM", "06:00 PM"];
+
+// --- Helper function for Audio ---
+const pcmToWav = (base64Data, sampleRate = 24000) => {
+  const binaryString = window.atob(base64Data);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  const buffer = bytes.buffer;
+  const wavHeader = new ArrayBuffer(44);
+  const view = new DataView(wavHeader);
+  const writeString = (offset, string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+  writeString(0, 'RIFF');
+  view.setUint32(4, 32 + buffer.byteLength, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, buffer.byteLength, true);
+  const combined = new Uint8Array(wavHeader.byteLength + buffer.byteLength);
+  combined.set(new Uint8Array(wavHeader), 0);
+  combined.set(new Uint8Array(buffer), wavHeader.byteLength);
+  return new Blob([combined], { type: 'audio/wav' });
+};
+
+// --- Components ---
+
+const Navbar = ({ setCurrentPage, currentPage }) => (
+  <nav className="flex justify-between items-center p-6 bg-neutral-900/50 backdrop-blur-md sticky top-0 z-50 border-b border-white/5">
+    <motion.div 
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      onClick={() => setCurrentPage('home')}
+      className="text-2xl font-bold tracking-tighter text-amber-500 cursor-pointer"
+    >
+      ROYAL SALOON
+    </motion.div>
+    <div className="hidden md:flex space-x-8 text-sm font-medium">
+      <button onClick={() => setCurrentPage('home')} className={`transition-colors ${currentPage === 'home' ? 'text-amber-500' : 'hover:text-amber-500'}`}>Home</button>
+      <a href="#services" className="hover:text-amber-500 transition-colors">Services</a>
+      <button onClick={() => setCurrentPage('about')} className={`transition-colors ${currentPage === 'about' ? 'text-amber-500' : 'hover:text-amber-500'}`}>About</button>
+    </div>
+    <button 
+      onClick={() => {setCurrentPage('home'); setTimeout(() => document.getElementById('booking')?.scrollIntoView(), 100)}}
+      className="bg-amber-600 hover:bg-amber-700 px-5 py-2 rounded-full text-sm font-bold transition-all transform hover:scale-105"
+    >
+      Book Now
+    </button>
+  </nav>
+);
+
+const Footer = () => (
+  <footer className="bg-black py-16 border-t border-neutral-800">
+    <div className="container mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12">
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-amber-500">ROYAL SALOON</h2>
+        <p className="text-neutral-400 leading-relaxed">Serving premium grooming experiences since 2015.</p>
+      </div>
+      <div className="space-y-6 text-neutral-400">
+          <h3 className="text-lg font-bold text-white uppercase">Contact</h3>
+          <p className="flex items-center gap-3"><Phone size={18} className="text-amber-500"/> +91 98765 43210</p>
+          <p className="flex items-center gap-3"><MapPin size={18} className="text-amber-500"/> Main Street, New Delhi</p>
+      </div>
+      <div className="space-y-6">
+        <h3 className="text-lg font-bold text-white">Hours</h3>
+        <ul className="space-y-4 text-neutral-400 text-sm">
+          <li className="flex justify-between"><span>Mon - Sat:</span> <span>10 AM - 9 PM</span></li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+);
+
+const App = () => {
+  const [currentPage, setCurrentPage] = useState('home');
+  const [customerName, setCustomerName] = useState('');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedService, setSelectedService] = useState('Hair Cut');
+  const [selectedSlot, setSelectedSlot] = useState('');
+  const [bookingStep, setBookingStep] = useState(1);
+  const [counter, setCounter] = useState(0);
+
+  // Gemini States
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiResponse, setAiResponse] = useState('');
+  const [generatedImg, setGeneratedImg] = useState(null);
+  const [isLoadingImg, setIsLoadingImg] = useState(false);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  
+  // Chatbot State
+  const [chatMessages, setChatMessages] = useState([
+    { role: 'ai', text: 'Hello! Main Royal Saloon ka AI assistant hoon. Aap mujhse grooming tips ya hairstyles ke baare mein puch sakte hain!' }
+  ]);
+  const [userInput, setUserInput] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const scrollRef = useRef(null);
+
+  const apiKey = ""; 
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
+
+  useEffect(() => {
+    if (currentPage === 'home') {
+      let start = 0;
+      const end = 1250;
+      const timer = setInterval(() => {
+        start += 15;
+        if (start >= end) {
+          setCounter(end);
+          clearInterval(timer);
+        } else {
+          setCounter(start);
+        }
+      }, 16);
+      return () => clearInterval(timer);
+    }
+  }, [currentPage]);
+
+  // Exponential Backoff Fetch
+  const fetchGemini = async (url, body) => {
+    let retries = 0;
+    while (retries < 5) {
+      try {
+        const res = await fetch(`${url}?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error();
+        return await res.json();
+      } catch {
+        retries++;
+        await new Promise(r => setTimeout(r, Math.pow(2, retries) * 1000));
+      }
+    }
+    return null;
+  };
+
+  const handleStyleViz = async () => {
+    if (!aiPrompt) return;
+    setIsAiLoading(true);
+    setIsLoadingImg(true);
+
+    // Get Text Suggestion
+    const textRes = await fetchGemini('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent', {
+      contents: [{ parts: [{ text: `User wants advice for: ${aiPrompt}. Provide a specific hairstyle recommendation for an Indian male profile in 30 words.` }] }]
+    });
+    const suggestion = textRes?.candidates?.[0]?.content?.parts?.[0]?.text;
+    setAiResponse(suggestion);
+    setIsAiLoading(false);
+
+    // Generate Image
+    const imgRes = await fetchGemini('https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict', {
+      instances: { prompt: `Cinematic high quality portrait of an Indian man with ${suggestion || aiPrompt}, professional salon photography, clean background` },
+      parameters: { sampleCount: 1 }
+    });
+    if (imgRes?.predictions?.[0]?.bytesBase64Encoded) {
+      setGeneratedImg(`data:image/png;base64,${imgRes.predictions[0].bytesBase64Encoded}`);
+    }
+    setIsLoadingImg(false);
+  };
+
+  const handleChat = async () => {
+    if (!userInput.trim()) return;
+    const newMsgs = [...chatMessages, { role: 'user', text: userInput }];
+    setChatMessages(newMsgs);
+    setUserInput('');
+    setIsChatLoading(true);
+
+    const res = await fetchGemini('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent', {
+      contents: [{ parts: [{ text: `You are a friendly Indian barber assistant named 'Raja'. Talk in Hinglish. Answer this: ${userInput}` }] }]
+    });
+    
+    const reply = res?.candidates?.[0]?.content?.parts?.[0]?.text || "Maaf kijiyega, kuch network issue lag raha hai.";
+    setChatMessages([...newMsgs, { role: 'ai', text: reply }]);
+    setIsChatLoading(false);
+  };
+
+  const sendWhatsApp = () => {
+    const text = `Hello Royal Saloon! I want to book ${selectedService} for ${customerName} on ${selectedDate} at ${selectedSlot}.`;
+    window.open(`https://wa.me/919876543210?text=${encodeURIComponent(text)}`, '_blank');
+    setBookingStep(3);
+  };
+
+  return (
+    <div className="min-h-screen bg-neutral-950 text-white font-sans selection:bg-amber-500/30">
+      <Navbar setCurrentPage={setCurrentPage} currentPage={currentPage} />
+      
+      <AnimatePresence mode="wait">
+        {currentPage === 'home' ? (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            {/* Hero */}
+            <section className="h-[80vh] flex items-center justify-center relative overflow-hidden">
+               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-neutral-950 z-10" />
+               <img src="https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&q=80&w=1600" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+               <div className="relative z-20 text-center px-4">
+                 <h1 className="text-6xl md:text-8xl font-black mb-4 tracking-tighter uppercase">Royal <span className="text-amber-500">Grooming</span></h1>
+                 <p className="text-lg text-neutral-400 max-w-xl mx-auto mb-8">Premium services for the modern gentleman. Experience luxury like never before.</p>
+                 <button onClick={() => document.getElementById('booking').scrollIntoView()} className="bg-amber-500 text-black px-10 py-4 rounded-full font-bold text-lg hover:scale-105 transition-all shadow-xl shadow-amber-500/20">Book Appointment</button>
+               </div>
+            </section>
+
+            {/* AI Visualizer */}
+            <section className="py-24 bg-neutral-900/50">
+              <div className="container mx-auto px-6 max-w-5xl">
+                <div className="flex flex-col md:flex-row gap-12 items-center">
+                  <div className="flex-1 space-y-6">
+                    <div className="inline-flex items-center gap-2 bg-amber-500/10 text-amber-500 px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest">
+                      <Sparkles size={14} /> AI Style Visualizer
+                    </div>
+                    <h2 className="text-4xl font-black uppercase">Dekhiye apna <span className="text-amber-500">Naya Look</span> ✨</h2>
+                    <p className="text-neutral-400">Bas bataiye aapko kaisa hairstyle chahiye, hamara AI aapke liye image generate kar dega!</p>
+                    <div className="space-y-4">
+                      <textarea 
+                        value={aiPrompt}
+                        onChange={(e) => setAiPrompt(e.target.value)}
+                        placeholder="E.g. I want a textured quiff with a fade..."
+                        className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl p-4 focus:border-amber-500 outline-none h-24 resize-none transition-all"
+                      />
+                      <button 
+                        onClick={handleStyleViz}
+                        disabled={isLoadingImg || !aiPrompt}
+                        className="w-full bg-white text-black py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-amber-500 transition-all disabled:opacity-50"
+                      >
+                        {isLoadingImg ? <Loader2 className="animate-spin" /> : <><ImageIcon size={18} /> Visualize Style ✨</>}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex-1 w-full aspect-square bg-neutral-800 rounded-3xl border border-white/5 overflow-hidden relative flex items-center justify-center">
+                    {isLoadingImg ? (
+                      <div className="text-center space-y-4">
+                        <Loader2 className="w-12 h-12 text-amber-500 animate-spin mx-auto" />
+                        <p className="text-amber-500 font-bold animate-pulse uppercase text-xs">AI is painting your style...</p>
+                      </div>
+                    ) : generatedImg ? (
+                      <motion.img initial={{ opacity: 0 }} animate={{ opacity: 1 }} src={generatedImg} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="text-center p-8 opacity-20">
+                        <ImageIcon size={64} className="mx-auto mb-4" />
+                        <p className="uppercase font-bold tracking-widest text-sm">Your Visualized Style Appears Here</p>
+                      </div>
+                    )}
+                    {aiResponse && !isLoadingImg && (
+                      <div className="absolute bottom-4 left-4 right-4 bg-black/60 backdrop-blur-md p-4 rounded-2xl border border-white/10">
+                        <p className="text-xs text-amber-500 font-bold mb-1 uppercase tracking-widest">AI Suggestion:</p>
+                        <p className="text-sm italic">"{aiResponse}"</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Booking */}
+            <section id="booking" className="py-24">
+              <div className="container mx-auto px-6 max-w-3xl">
+                <div className="text-center mb-12">
+                   <h2 className="text-4xl font-black uppercase">Reserve Your Spot</h2>
+                   <p className="text-neutral-500 mt-2">Apna slot book karein aur royal treatment payein.</p>
+                </div>
+                <div className="bg-neutral-900 p-8 rounded-[2.5rem] border border-white/5 shadow-2xl">
+                   {bookingStep === 1 && (
+                     <div className="space-y-6">
+                        <div className="space-y-2">
+                           <label className="text-xs font-bold text-neutral-500 uppercase ml-2">Full Name</label>
+                           <input type="text" placeholder="Rahul Kumar" className="w-full bg-neutral-800 p-4 rounded-2xl outline-none focus:border-amber-500 border border-transparent" onChange={e => setCustomerName(e.target.value)} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                           <div className="space-y-2">
+                              <label className="text-xs font-bold text-neutral-500 uppercase ml-2">Date</label>
+                              <input type="date" className="w-full bg-neutral-800 p-4 rounded-2xl outline-none focus:border-amber-500 border border-transparent" onChange={e => setSelectedDate(e.target.value)} />
+                           </div>
+                           <div className="space-y-2">
+                              <label className="text-xs font-bold text-neutral-500 uppercase ml-2">Service</label>
+                              <select className="w-full bg-neutral-800 p-4 rounded-2xl outline-none focus:border-amber-500 border border-transparent" onChange={e => setSelectedService(e.target.value)}>
+                                 {services.map(s => <option key={s.name}>{s.name}</option>)}
+                              </select>
+                           </div>
+                        </div>
+                        <button onClick={() => setBookingStep(2)} disabled={!customerName || !selectedDate} className="w-full bg-amber-500 text-black py-4 rounded-2xl font-black uppercase hover:bg-amber-600 transition-all disabled:opacity-50">Choose Slot</button>
+                     </div>
+                   )}
+                   {bookingStep === 2 && (
+                     <div className="space-y-8">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                           {timeSlots.map(t => (
+                             <button key={t} onClick={() => setSelectedSlot(t)} className={`p-3 rounded-xl border text-sm font-bold transition-all ${selectedSlot === t ? 'bg-amber-500 border-amber-500 text-black' : 'border-neutral-700 text-neutral-400'}`}>{t}</button>
+                           ))}
+                        </div>
+                        <div className="flex gap-4">
+                           <button onClick={() => setBookingStep(1)} className="flex-1 bg-neutral-800 py-4 rounded-2xl font-bold">Back</button>
+                           <button onClick={sendWhatsApp} className="flex-[2] bg-green-600 py-4 rounded-2xl font-bold flex items-center justify-center gap-2"><MessageCircle size={20}/> WhatsApp Booking</button>
+                        </div>
+                     </div>
+                   )}
+                   {bookingStep === 3 && (
+                     <div className="text-center py-12 space-y-4">
+                        <CheckCircle size={64} className="text-green-500 mx-auto" />
+                        <h3 className="text-2xl font-bold uppercase">Booking Request Sent!</h3>
+                        <p className="text-neutral-500">Aapko WhatsApp par jald hi confirmation milega.</p>
+                        <button onClick={() => setBookingStep(1)} className="bg-amber-500 text-black px-8 py-3 rounded-full font-bold">Done</button>
+                     </div>
+                   )}
+                </div>
+              </div>
+            </section>
+
+            {/* Chatbot Floating NPC */}
+            <div className="fixed bottom-6 right-6 z-[60]">
+               <div className="group relative">
+                  <div className="absolute -top-12 right-0 bg-amber-500 text-black px-3 py-1 rounded-lg text-xs font-black uppercase whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                    Talk to Raja ✨
+                  </div>
+                  <button onClick={() => document.getElementById('chat-window').classList.toggle('hidden')} className="bg-amber-500 p-4 rounded-full shadow-2xl hover:scale-110 transition-transform">
+                     <BrainCircuit className="text-black" />
+                  </button>
+               </div>
+               
+               <div id="chat-window" className="hidden absolute bottom-20 right-0 w-80 md:w-96 h-[500px] bg-neutral-900 border border-white/10 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+                  <div className="p-4 bg-amber-500 text-black flex items-center justify-between">
+                     <div className="flex items-center gap-2">
+                        <UserCircle />
+                        <span className="font-black uppercase tracking-tighter">Raja the Barber</span>
+                     </div>
+                     <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-green-800 rounded-full animate-pulse" />
+                        <span className="text-[10px] font-bold">ONLINE</span>
+                     </div>
+                  </div>
+                  <div ref={scrollRef} className="flex-1 p-4 space-y-4 overflow-y-auto bg-neutral-950/50">
+                     {chatMessages.map((msg, i) => (
+                       <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-amber-500 text-black rounded-tr-none font-medium' : 'bg-neutral-800 text-white rounded-tl-none'}`}>
+                             {msg.text}
+                          </div>
+                       </div>
+                     ))}
+                     {isChatLoading && (
+                       <div className="flex justify-start">
+                          <div className="bg-neutral-800 p-3 rounded-2xl flex gap-1">
+                             <div className="w-1 h-1 bg-amber-500 rounded-full animate-bounce" />
+                             <div className="w-1 h-1 bg-amber-500 rounded-full animate-bounce [animation-delay:0.2s]" />
+                             <div className="w-1 h-1 bg-amber-500 rounded-full animate-bounce [animation-delay:0.4s]" />
+                          </div>
+                       </div>
+                     )}
+                  </div>
+                  <div className="p-4 bg-neutral-900 border-t border-white/5 flex gap-2">
+                     <input 
+                        type="text" 
+                        value={userInput}
+                        onChange={e => setUserInput(e.target.value)}
+                        onKeyPress={e => e.key === 'Enter' && handleChat()}
+                        placeholder="Puchiye Raja se..."
+                        className="flex-1 bg-neutral-800 border-none outline-none p-3 rounded-xl text-sm"
+                     />
+                     <button onClick={handleChat} className="bg-amber-500 p-3 rounded-xl text-black hover:bg-amber-600"><Send size={18}/></button>
+                  </div>
+               </div>
+            </div>
+          </motion.div>
+        ) : (
+          <AboutPage setCurrentPage={setCurrentPage} />
+        )}
+      </AnimatePresence>
+
+      <Footer />
+    </div>
+  );
+};
+
+const AboutPage = ({ setCurrentPage }) => (
+  <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="py-24 container mx-auto px-6 max-w-4xl">
+     <button onClick={() => setCurrentPage('home')} className="flex items-center gap-2 text-amber-500 mb-12 hover:gap-4 transition-all">
+        <ArrowLeft /> Back to Home
+     </button>
+     <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+        <img src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&q=80&w=800" className="rounded-3xl border-4 border-amber-500/20 shadow-2xl" />
+        <div className="space-y-6">
+           <h2 className="text-5xl font-black uppercase">Royal <span className="text-amber-500">Heritage</span></h2>
+           <p className="text-neutral-400 leading-relaxed">Royal Saloon 2015 se grooming ka benchmark raha hai. Hum sirf haircuts nahi, balki confidence bechte hain. Hamare stylists expert hain har naye trend mein.</p>
+           <div className="flex gap-4">
+              <div className="flex-1 bg-neutral-900 p-6 rounded-2xl border border-white/5 text-center">
+                 <h4 className="text-3xl font-black text-amber-500">10k+</h4>
+                 <p className="text-[10px] uppercase font-bold text-neutral-500">Styles Created</p>
+              </div>
+              <div className="flex-1 bg-neutral-900 p-6 rounded-2xl border border-white/5 text-center">
+                 <h4 className="text-3xl font-black text-amber-500">4.9</h4>
+                 <p className="text-[10px] uppercase font-bold text-neutral-500">User Rating</p>
+              </div>
+           </div>
+        </div>
+     </div>
+  </motion.div>
+);
+
+export default App;
